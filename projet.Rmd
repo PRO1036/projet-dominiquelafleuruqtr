@@ -1,0 +1,387 @@
+---
+title: "projet.final"
+author: "Dominique Lafleur, Sandrine Marcotte, Léa Simard"
+output: html_document
+date: "2024-12-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### INTRODUCTION :
+_________________________________________________
+La criminalité est problème croissant dans chaque grande ville du monde. Chaque crime comporte des caractéristiques démographiques et temporels propres, ce qui nous permet de mieux analyser et prédire le comportement humain. À Los Angeles, l'étude des tendances criminelles peut offrir des pistes d'amélioration en estimant les probabilités que de nouveaux crimes arrivent dans le futur et, donc prévenir ces futurs délits.
+Ce rapport explore comment la distribution et la fréquence des crimes dans la ville de Los Angeles sont-elles influencées par les périodes, les différents quartiers et les différentes caractéristiques des victimes. Nous cherchons, donc à répondre aux questions suivantes :
+•	Quel est le nombre de crimes à main armée par rapport à ceux sans arme?
+•	Quel sont les districts plus à risque de crime avec les données de longitude et de latitude?
+•	Les crimes évoluent-ils au fil des années, notamment ceux liés au vol d’identité ?
+•	Y’a-t-il des périodes de la journée où le taux de criminalité est plus élevé?
+•	Le taux de criminalité varie-t-il en fonction des saisons?
+•	Quel crime est le plus fréquent dans Los Angeles?
+•	Quels moments de la journée ou de l’année sont les plus propices à la criminalité ?
+En examinant des données actualisées provenant du département de police de Los Angeles, notre objectif est de révéler les tendances et de comprendre les variations des caractéristiques observées. Grâce à des analyses descriptives, des visualisations, et des modèles prédictifs, ce rapport vise à connaitre quelques facteurs précis de la criminalité dans cette métropole californienne.
+
+
+### DONNÉES : 
+_________________________________________________
+Pour répondre à ces questions, nous avons utilisé un ensemble de données intitulé Los Angeles Crime Data et fourni par le département de police de Los Angeles (LAPD). Cet ensemble de données documente avec une assez bonne précision les crimes ayant pris place dans cette ville depuis le 10 février 2020 jusqu’à aujourd’hui. Les données, mises à jour deux fois par mois, restent actuelles et fiables, bien qu’elles aient été auparavant actualisées chaque semaine. En raison d’un problème technique, cette fréquence a été réduite, mais le processus reste suffisamment régulier pour garantir des informations précises et pertinente pour notre analyse.
+Cet ensemble de données contient à ce jour 984 045 observations et 28 variables (variables catégorielles, des variables numériques discrètes et des variables numériques continues), dont les suivantes seront particulièrement utiles pour notre analyse :
+
+•	Date et heure du crime : pour analyser les variations temporelles.
+
+•	Quartier et coordonnées géographiques (longitude et latitude) : pour identifier les zones les plus à risque.
+
+•	Description du crime : pour catégoriser les différents types de délits.
+
+•	Sexe de la victime : pour explorer les éventuelles disparités entre hommes et femmes.
+
+•	code du crime: pour créer un prédiction selon le crime.
+
+Ces données, à la fois qualitatives et quantitatives, représentent chaque crime par une ligne détaillant leurs caractéristiques détaillées. Cela nous permettra de mener des analyses assez diversifiées, tels qu’une visualisation géographique, des prédictions de tendances futures et d’autres analyses descriptives.
+
+Par exemple, notre étude se penchera sur des aspects tels que :
+
+•	La répartition des crimes armés et non armés, selon le genre des victimes.
+
+•	L’identification des quartiers les plus à risque, avec une attention particulière à des zones comme Skid Row.
+
+•	L’évolution temporelle de délits spécifiques, tels que les vols d’identité.
+
+•	L’impact des saisons et des périodes de la journée sur la fréquence des crimes.
+
+Cette combinaison de données et de questions offre une base solide pour comprendre les dynamiques criminelles de Los Angeles et guider les actions futures pour offrir une sécurité publique supérieur.
+
+
+### ANLAYSE DES DONNÉES : 
+_________________________________________________
+
+Nous commençons par charger les 'packages' nécessaires pour faire nos analyses. Ceux-ci sont : dplyr, ggplot2, readr, lubridate et sf.
+
+```{r message=FALSE}
+
+#install.packages("sf")
+#install.packages("ggplot2")
+#install.packages("dplyr")
+#install.packages("rnaturalearthdata")
+#install.packages("rnaturalearthhires", repos = "https://ropensci.r-universe.dev", type = "source")
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(tidymodels)
+library(lubridate)
+library(sf)
+library(yardstick)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(rnaturalearthhires)
+Crime_Data_Los_Angeles <- read_csv("C:/Users/domil/OneDrive/Bureau/école/R/Crime_Data_from_2020_to_Present_20241128 (1).csv")
+View(Crime_Data_Los_Angeles)
+```
+Ensuite, nous remarquons que cet ensemble de données compte près d'un million d'observations, donc pour le bien de la cause nous avons décidé de seulement utilisé l'année 2021.
+
+```{r préparation_des_data}
+
+Crime_Data <- Crime_Data_Los_Angeles %>%
+mutate(Date = as.Date(`DATE OCC`, format = "%m/%d/%Y"))
+
+crime_data_2021 <- Crime_Data %>%
+filter(format(Date, "%Y") == "2021")
+
+View(crime_data_2021)
+
+
+```
+
+Pour nous aider à construire ce code nous nous sommes inspiré du site suivant : https://demandred.gitbooks.io/introduction-a-r-pour-les-chatons/content/les-structures-de-donnees-avancees/les-dates-en-r.html
+
+## Visualisations :
+
+#Question 1 : Nous aimerions connaître le nombre de crimes à main armée par rapport à ceux sans arme.
+
+Hypothèse : Nous pensons que le nombre de crimes à main armée sera plus élevé, car cela sert de force additionnelle au criminel.
+
+Méthode : Ceci serait une de nos visualisations où on aimerait utiliser facet_grid() pour voir la proportion de crime à main armée versus sans arme sur les femmes et sur les hommes.
+
+
+```{r visualisation_question_1}
+non_armed_weapons <- c("NA", "VERBAL THREAT", "VEHICLE", "STRONG-ARM (HANDS, FIST, FEET OR BODILY FORCE)", "PHYSICAL PRESENCE", "LIQUOR/DRUGS", "DOG/ANIMAL (SIC ANIMAL ON)", "DEMAND NOTE" )
+
+armed_crime_data_2021 <- crime_data_2021%>%
+mutate(armed = ifelse(`Weapon Desc` %in% non_armed_weapons, "Unarmed", "Armed"))%>%
+filter(`Vict Sex` %in% c("F", "M"))
+
+ggplot(armed_crime_data_2021, aes(x = armed)) +
+geom_bar() +
+facet_grid(~ `Vict Sex`) +
+labs(title = "Comparaison des crimes armés et non armés par rapport au sexe des victimes",
+x = "Type de crime",
+y = "Nombre de crimes")
+```
+
+Analyse du résultat de la question 1 :
+
+Après analyse de nos résultats, nous réalisons qu'il y a beaucoup plus de crime à main armé que de crime non-armé. En comparant les différents sexes des victimes, on s'apercoit qu'il y a plus de crime à main armé chez les hommes et plus de crimes non armé chez les femmes. De plus, on peut également observé qu'il y a plus de victime de sexe Male que de victime de sexe Femme.
+
+#Question 2 :  Nous voudrions connaître les districts plus à risque de crime avec les données de longitude et de latitude.
+Hypothèse : Nous pensons que les quartiers plus démunis seront plus à risque. Selon La Presse, le quartier le plus démuni de Los Angeles est « Skid Row », qui appartient au district « Central division » (https://manhattan.institute/article/the-moral-crisis-of-skid-row-las-most-notorious-neighborhood), soit « Central » dans la base de données. 
+(Lien : https://www.lapresse.ca/international/etats-unis/la-presse-en-californie/au-coeur-de-la-crise-americaine-de-l-itinerance/2024-06-14/des-trottoirs-couverts-de-tentes.php#:~:text=(Los%20Angeles%2C%20quartier%20Skid%20Row,des%20palaces%20de%20Beverly%20Hills)
+
+Méthode : Ceci serait notre deuxième visualisation et on voudrait faire un nuage de point pour idéalement représenter une carte à l’aide des coordonnées de longitude et de latitude tel que mentionné précédemment.
+
+```{r préparation_du_fond_de_carte}
+california <- ne_states(country = "United States of America", returnclass = "sf") %>%
+filter(name == "California")
+ocean <- ne_download(scale = 10, type = "ocean", category = "physical", returnclass = "sf")
+
+xlim = c(-118.7, -118)
+ylim = c(33.7, 34.35)
+
+ggplot() +
+geom_sf(data = california) +
+geom_sf(data = ocean, colour='lightblue', fill='lightblue') +
+coord_sf(xlim = xlim, ylim = ylim) +
+theme_minimal()
+```
+
+```{r message=FALSE}
+LAPD_Divisions <- st_read("R_cartes/LAPD_Divisions/LAPD_Divisions.shp")
+LAPD_Reporting_Districts <- st_read("R_cartes/LAPD_Reporting_Districts/LAPD_Reporting_Districts.shp")
+
+LA_roads <- st_read("R_cartes/Master_Plan_of_Highways/Master_Plan_of_Highways.shp")
+LA_highways <- LA_roads %>%
+separate(HCODE_NAME, into = c("type", "existing"), sep = " - ", remove = FALSE) %>%
+filter(existing == "EXISTING",
+type == "FREEWAY")
+```
+
+```{r préparation_des_données}
+
+crime_sf <- st_as_sf(
+crime_data_2021,
+coords = c("LON", "LAT"),
+crs = 4326
+)
+```
+
+```{r visualisation_concentration_de_crimes}
+ggplot() +
+geom_sf(data = california) +
+geom_sf(data = ocean, colour='lightblue', fill='lightblue') +
+geom_sf(data = LAPD_Divisions, fill = NA, color=alpha("black",0.7)) +
+#geom_sf(data = LAPD_Reporting_Districts, fill = NA, color = "red", alpha=0.4) +
+geom_sf(data = LA_highways, size=0.5, color=alpha("red",0.2)) +
+geom_sf(data = crime_sf, size = 0.00005, alpha = 0.7)+
+coord_sf(xlim = xlim, ylim = ylim) +
+theme_minimal()
+```
+
+
+
+Après analyse de nos résultats, nous réalisons que les crimes sont majoritairement concentrés dans les districts de « Central Division » et de « Newton Division ». Cela est observable grâce à la forte concentration de coordonnées créées à partir de la longitude et de la latitude. 
+
+##Statistique prédictive : 
+
+#Question 3 : Quand (jour ou nuit) chaque type de crime est le plus probable de se produire? 
+
+Hypothèse: Nous pensons que la majorité des crimes se produisent de nuit, car nous pensons qu'il y a moins de surveillance.
+
+Méthode: Faire une regression logistique pour calculer le pourcentage de chance qu'un crime, ici le vol de voiture, se produisent de nuit.
+
+```{r préparation des données}
+
+crime_data_2021_2 <- Crime_Data %>%
+  filter(format(Date, "%Y") == "2021") %>%
+  mutate(`TIME OCC` = as.numeric(`TIME OCC`),
+    time = ifelse(`TIME OCC` < 600 | `TIME OCC` >= 1800, "1", "0"),
+    time = as.factor(time), 
+    Crm.Cd = as.factor(`Crm Cd`)) %>%
+  filter(!is.na(time), !is.na(Crm.Cd), !(Crm.Cd %in% c(347, 435, 436, 444, 452, 470, 474, 906, 924, 948)))
+
+```
+
+
+Nous avons éliminer certains crime de Crm.Cd parce que ces crimes se sont produit qu'une fois pendant l'année 2021 et en les enlevant cela facilite la séparation des données pour l'analyse.
+
+```{r séparation des données}
+
+crime_data_2021_split <- initial_split(crime_data_2021_2)
+train_data <- training(crime_data_2021_split)
+test_data <- testing(crime_data_2021_split)
+```
+
+
+```{r regression logistique}
+
+reg <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+fit <- reg %>%
+  fit(time ~ Crm.Cd, data = train_data, family = binomial)
+```
+
+
+```{r évaluation du modèle de regression}
+train_pred <- fit %>%
+  predict(train_data, type = "class") %>%
+  bind_cols(
+    predict(fit, train_data, type = "prob"),
+    train_data %>% select(time, Crm.Cd))
+
+
+train_pred %>%
+  roc_auc(truth = time, .pred_1)
+```
+
+
+
+```{r suite évaluation du modèle}
+train_pred %>%
+  accuracy(truth = time, .pred_class)
+```
+
+
+```{r prédiction avec le modèle}
+test_pred <- fit %>%
+  predict(test_data, type = "class") %>%
+  bind_cols(
+    predict(fit, test_data, type = "prob"),
+    test_data %>% select(time, Crm.Cd))
+
+
+test_pred %>%
+  roc_auc(truth = time, .pred_1)
+```
+
+
+```{r suite prédiction avec le modèle}
+
+test_pred %>%
+  accuracy(truth = time, .pred_class)
+```
+
+On peut voir que le modèle est très peu efficace pour prédire avec une performance d'environ 0.4, ce qui est plus bas que 0.5 et donc pas meilleur que le hasard, et une précision d'environ 58%, ce qui implique qu'il n'y qu'un peu plus de la moitié des prédictions du modèle qui sont corrects.
+
+
+
+```{r visualisation_des_données_du_modèle}
+glm <- glm(time ~ Crm.Cd, data = train_data, family = binomial)
+summary(glm)
+```
+
+Analyse de la question 3:
+
+Malgré la faible efficacité du modèle, on peut quand même estimer quand un certain crime est plus probable se produire. Par exemple, dans le cas du crime le plus fréquent, soit le vol de voiture (code 510), son coefficient est de -0.1317, plus la valeur de intercept, + 0.37194 = 0.24024.
+e^0.24024 = 1.2714
+prob = 1.2714/(1+1.2714) = 0.559
+Donc, un vol de voiture à environ 56% de chance de se produire de nuit et 46% de jour.
+
+## Analyses descriptives : 
+
+#QUESTION 4 : Nous aimerions ensuite savoir s’il y a des périodes de la journée où le taux de criminalité est plus élevé. 
+
+Hypothèse : Nous pensons que le taux de criminalité est plus élevé en fin de journée par rapport au matin ou en journée, car les rues sont moins achalandées et la surveillance est moins présente. 
+
+Méthode : Nous allons faire un tableau représentant la fréquence des crimes et nous allons séparer les périodes de la journée selon l’heure.
+
+```{r criminalité_différentes_périodes_journée}
+crime_data_2021 <- crime_data_2021 %>%
+mutate(`TIME OCC` = as.numeric(`TIME OCC`))
+
+crime_data_2021 <- crime_data_2021 %>%
+mutate(Period = case_when(
+`TIME OCC` >= 600 & `TIME OCC` < 1200 ~ "Matin",
+`TIME OCC` >= 1200 & `TIME OCC` < 1800 ~ "Après-midi",
+`TIME OCC` >= 1800 & `TIME OCC` < 2400 ~ "Soir",
+`TIME OCC` >= 0 & `TIME OCC` < 600 ~ "Nuit"))
+
+period_crime <- crime_data_2021 %>%
+group_by(Period) %>%
+summarise(Count = n()) %>%
+mutate(Percentage = (Count / sum(Count)) * 100) %>%
+arrange(desc(Count))
+
+print(period_crime)
+```
+
+Analyse du résultat de la question 4 :
+
+Après analyse de nos résultats, nous réalisons qu'il y a bien des périodes de la journée où le taux de criminalité est plus élevé. En effet, tel qu'on peut voir l'après-midi compte définitivement plus de crime avec un nombre total de 36724 et un pourcentage exact de 32.01437% pour l'année 2021. Ensuite, la seconde partie de la journée avec le plus haut taux de criminalité serait le soir avec un compte de 36618 et un pourcentage de 31.92196% pour l'année 2021. La troisième période de la journée avec un taux de criminalité le plus élevé est le matin avec un compte de 23500 et donc un pourcentage de 20.48627% pour l'année 2021. Finalement, la période de la journée avec le plus faible taux de criminalité est la nuit avec un compte de 17869 et donc un pourcentage de 15.57741% pour l'année 2021.
+
+
+
+#QUESTION 5 : Nous souhaiterions déterminer si le taux de criminalité varie en fonction des saisons.
+
+Hypothèse : Nous pensons que le plus haut taux de criminalité sera en été, car les gens ont plus tendance à sortir dans les temps chauds.
+
+Méthode : Nous allons faire un tableau montrant le taux de crime selon les différentes saisons que nous allons définir comme été, automne, hiver et printemps.
+
+```{r crime_par_saison}
+crime_data_2021 <- crime_data_2021 %>%
+mutate(Saison = case_when(
+month(Date) %in% c(12, 1, 2) ~ "Hiver",
+month(Date) %in% c(3, 4, 5) ~ "Printemps",
+month(Date) %in% c(6, 7, 8) ~ "Été",
+month(Date) %in% c(9, 10, 11) ~ "Automne"))
+
+crimes_par_saison <- crime_data_2021 %>%
+group_by(Saison) %>%
+summarise(Count = n()) %>%
+mutate(Percentage = (Count / sum(Count)) * 100) %>%
+arrange(desc(Percentage))
+
+print(crimes_par_saison)
+```
+
+Analyse du résultat de la question 5 :
+
+Après analyse de nos résultats,on peut voir que l'été a le taux de criminalité le plus élevé avec un compte de 30762 crimes et un pourcentage de 26.81696%. Ensuite, la deuxième saison est l'automne avec 29040 crimes pour un pourcentage de 25.31579%. Le troisième saison avec le plus haut taux de criminalité est le printemps avec un compte de 28450 crimes et donc un pourcentage de 24.80146%. Finalement, la saison avec le plus faible taux de criminalité est l'hiver avec 26459 crimes, donc un pourcentage de 23.06579%. 
+
+#QUESTION 6 : Nous aimerions savoir quel crime est le plus fréquent dans Los Angeles.
+
+Hypothèse : Nous pensons que les vols dans les véhicules constitueront les crimes les plus fréquents.
+
+Méthode : Nous allons faire un tableau montrant la fréquence des crimes, montrer les résultats en ordre décroissant et sélectionner seulement la première ligne pour identifier le type de crime le plus fréquent.
+```{r}
+crime_freq <- crime_data_2021 %>%
+group_by(`Crm Cd Desc`) %>%
+summarise(Count = n()) %>%
+arrange(desc(Count))%>%
+slice(1)
+
+print(crime_freq)
+```
+
+Analyse du résultat de la question 6 :
+
+Après analyse de nos résultats, nous réalisons que le crime le plus fréquent lors de l'année 2021 est le vol de véhicule avec un compte total de 12 233 vols.
+
+### DISCUSSION : 
+_________________________________________________
+
+Question 1:
+
+Tout d’abord, pour notre première question, tel qu’observé dans l’analyse, il y beaucoup plus de crimes à main non-armée que de crime à main armée. De plus, nous observons plus de crimes à main armée chez l’homme, mais plus de crime non-armé chez la femme. Cela mène à croire que les attaquants sentent le besoin de s’armer pour avoir un sentiment de supériorité sur la victime de sexe masculin. En suivant le même raisonnement, les criminels ne ressentent pas le besoin d’avoir une arme pour attaquer une femme. Finalement nos résultats confirment notre hypothèse, où nous pensions que le nombre de crime armé allait être plus élevé, car cela sert de force additionnelle au criminel. Pour cette question, nos limites sont que nous avons seulement considérer l’année 2021, donc les résultats pourraient différés selon l’année analysée. De plus, nous avons les sexes masculins et féminins pour une meilleure compréhension de notre analyse.
+
+Question 2:
+
+Selon http://www.lacp.org/CP%20Tutorial/LAPD%20Central%20Bureau%20map.html , nous confirmons notre hypothèse, car nous remarquons que les points sont plus concentrés, c’est-à-dire la concentration de crimes est plus élevé dans le district de « Central Division », et donc dans le quartier de « Skid Row ». Il est aussi possible de voir une haute concentration d’activité criminelle dans « Newton Division ». Puisque nous avons sélectionné l’entièreté de l’année 2021, le nombre de crimes est tellement élevé de différencier quelle division est plus concentrée en criminalité. Donc pour un résultat plus clair, nous aurions pu utiliser une plus petite tranche de temps. 
+
+Question 3: 
+
+Pour l’analyse prédictive, nous avons décidé de mettre en relation les variables TIME.OCC et Crm.Cd pour voir quand est ce que chaque crime était le plus probable de se produire. Avec notre modèle de régression logistique, nous avons pu estimer que le vol de voiture avait 56% de chance de survenir de nuit. Ce qui confirme notre hypothèse puisque le vol de voiture a plus de chance de se produire de nuit que de jour. Les limites de cette analyse sont que notre modèle ne s’est pas avéré à être très performant et cela peut être dû au fait que la variable Crm.Cd, que nous avons choisi pour cette analyse, a beaucoup de valeurs possibles dont certaines qui n’apparaissent que deux fois et d’autre plus de 10 000 fois. Cela peut créer un certain déséquilibre dans les classes et peut affecter la performance et la précision du modèle. De plus, nous avons confirmé notre hypothèse en se basant seulement sur le résultat obtenu pour le vol de voiture, puisque c'est le crime le plus fréquent, cependant cela ne montre pas réellement que la majorité des crime ont plus de chance de se produire de nuit. Un autre limite est le fait que nous ayons séparé la journée seulement en deux. Dans la question 4, nous avons observé qu'il y avait un taux de criminalité très similaire entre le soir et l'après midi, alors si le modèle de regression nous permettait de diviser la journée en plus que deux périodes, nous aurions probablement observé autre chose.
+
+Question 4 :
+
+Maintenant pour la quatrième question, nous réalisons qu’il y a bel et bien des périodes de la journée où le taux de criminalité est plus élevé. Effectivement, nous observons qu’en après-midi le pourcentage de criminalité était de 32,01% suivit de près par le soir avec un pourcentage de 31,92%. Cela infirme notre hypothèse, car la nuit est la période de la journée avec la plus faible activité criminelle avec un pourcentage de 15,58%. Une fois de plus, nos résultats étaient limités puisque nous n’avons analysés que les crimes de 2021. Une question qui aurait été intéressante serait d’analyser à quelle période de la journée chaque crime est plus probable d’occurer.
+
+Question 5 :
+
+Ensuite, pour la cinquième question, nous observons que le taux de criminalité varie effectivement en fonction des saisons, mais les pourcentages obtenus sont quasi-équivalents, ce qui fait en sorte que les résultats pourraient différés d’année en année. Toutefois, selon nos observations l’été est tout de même la saison avec les plus de crimes avec un pourcentage de 26,82% versus l’hiver, la saison avec le moins de criminalité, qui un pourcentage d’activité criminelle de 23,07%. Ce résultat confirme notre hypothèse avec une certaine limite tel que mentionné.
+
+Question 6 : 
+
+Enfin, pour la dernière question, nous observons que le crime le plus fréquent à Los Angeles est le vol de véhicule avec un nombre d’infractions totales de 12 233 vols. Cela confirme une fois de plus notre hypothèse. Nous croyons que cela est le cas, car les véhicules sont nombreux et ont une certaine facilité d’accès. De plus, Los Angeles compte plusieurs plus démunis, donc avec moins de surveillance, moins d’éclairages et donc moins de sécurité. Les limites de cette analyse sont encore une fois l’année, mais aussi que nous avons utilisé une vue d’ensemble sur la ville et non sur des quartiers plus ciblés.
+
