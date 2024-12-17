@@ -1,7 +1,7 @@
 ---
 title: "projet.final"
 author: "Dominique Lafleur, Sandrine Marcotte, Léa Simard"
-output: "file:///C:/Users/domil/OneDrive/Bureau/%C3%A9cole/R/Projet-final.html"
+output: rapport.html
 date: "2024-12-17"
 ---
 
